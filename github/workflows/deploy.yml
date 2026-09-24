@@ -1,0 +1,146 @@
+name: CI/CD - Hotel Reserve
+
+on:
+  push:
+    branches: [ main, principal ]
+  pull_request:
+    branches: [ main, principal ]
+
+jobs:
+
+  # ── TEST MS USUARIOS ──────────────────────────────────────────────
+  test-ms-usuarios:
+    name: Test MS Usuarios
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          cd usuarios-ms
+          pip install fastapi uvicorn supabase python-jose passlib bcrypt python-dotenv
+
+      - name: Verificar sintaxis
+        run: |
+          cd usuarios-ms
+          python -m py_compile main.py
+          echo "✅ MS Usuarios - sintaxis correcta"
+
+  # ── TEST MS HABITACIONES ──────────────────────────────────────────
+  test-ms-habitaciones:
+    name: Test MS Habitaciones
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          cd ms-habitaciones
+          pip install fastapi uvicorn supabase python-dotenv
+
+      - name: Verificar sintaxis
+        run: |
+          cd ms-habitaciones
+          python -m py_compile main.py
+          echo "✅ MS Habitaciones - sintaxis correcta"
+
+  # ── TEST MS RESERVAS ──────────────────────────────────────────────
+  test-ms-reservas:
+    name: Test MS Reservas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          cd ms-reservas
+          pip install fastapi uvicorn supabase python-jose python-dotenv "strawberry-graphql[fastapi]"
+
+      - name: Verificar sintaxis
+        run: |
+          cd ms-reservas
+          python -m py_compile main.py
+          echo "✅ MS Reservas - sintaxis correcta"
+
+  # ── TEST GATEWAY ──────────────────────────────────────────────────
+  test-gateway:
+    name: Test API Gateway
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          cd puerta
+          pip install fastapi uvicorn httpx python-dotenv python-jose
+
+      - name: Verificar sintaxis
+        run: |
+          cd puerta
+          python -m py_compile main.py
+          echo "✅ API Gateway - sintaxis correcta"
+
+  # ── TEST FRONTEND ─────────────────────────────────────────────────
+  test-frontend:
+    name: Test Frontend Vue.js
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Instalar dependencias
+        run: |
+          cd aplicacion
+          npm install --legacy-peer-deps
+
+      - name: Build del frontend
+        run: |
+          cd aplicacion
+          npm run build
+          echo "✅ Frontend - build exitoso"
+
+  # ── DEPLOY SUMMARY ────────────────────────────────────────────────
+  deploy-summary:
+    name: Resumen del Deploy
+    runs-on: ubuntu-latest
+    needs: [test-ms-usuarios, test-ms-habitaciones, test-ms-reservas, test-gateway, test-frontend]
+    steps:
+      - name: Resumen exitoso
+        run: |
+          echo "🎉 Todos los tests pasaron exitosamente"
+          echo "✅ MS Usuarios    - OK"
+          echo "✅ MS Habitaciones - OK"
+          echo "✅ MS Reservas    - OK"
+          echo "✅ API Gateway    - OK"
+          echo "✅ Frontend Vue   - OK"
+          echo ""
+          echo "🚀 Proyecto listo para deploy en Render + Netlify"
