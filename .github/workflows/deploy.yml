@@ -2,9 +2,9 @@ name: CI/CD - Hotel Reserve
 
 on:
   push:
-    branches: [ main, principal ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, principal ]
+    branches: [ main ]
 
 jobs:
 
@@ -23,12 +23,12 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          cd usuarios-ms
+          cd ms-usuarios
           pip install fastapi uvicorn supabase python-jose passlib bcrypt python-dotenv
 
       - name: Verificar sintaxis
         run: |
-          cd usuarios-ms
+          cd ms-usuarios
           python -m py_compile main.py
           echo "✅ MS Usuarios - sintaxis correcta"
 
@@ -95,12 +95,12 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          cd puerta
+          cd gateway
           pip install fastapi uvicorn httpx python-dotenv python-jose
 
       - name: Verificar sintaxis
         run: |
-          cd puerta
+          cd gateway
           python -m py_compile main.py
           echo "✅ API Gateway - sintaxis correcta"
 
@@ -119,12 +119,12 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          cd aplicacion
+          cd app
           npm install --legacy-peer-deps
 
       - name: Build del frontend
         run: |
-          cd aplicacion
+          cd app
           npm run build
           echo "✅ Frontend - build exitoso"
 
@@ -137,10 +137,10 @@ jobs:
       - name: Resumen exitoso
         run: |
           echo "🎉 Todos los tests pasaron exitosamente"
-          echo "✅ MS Usuarios    - OK"
+          echo "✅ MS Usuarios     - OK"
           echo "✅ MS Habitaciones - OK"
-          echo "✅ MS Reservas    - OK"
-          echo "✅ API Gateway    - OK"
-          echo "✅ Frontend Vue   - OK"
+          echo "✅ MS Reservas     - OK"
+          echo "✅ API Gateway     - OK"
+          echo "✅ Frontend Vue    - OK"
           echo ""
           echo "🚀 Proyecto listo para deploy en Render + Netlify"
