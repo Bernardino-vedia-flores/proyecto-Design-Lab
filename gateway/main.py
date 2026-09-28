@@ -17,7 +17,10 @@ app = FastAPI(title="API Gateway - Hotel Reserve", version="1.0.0")
 # ── CORS ───────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://hotel-reservas-sucre.netlify.app"
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
