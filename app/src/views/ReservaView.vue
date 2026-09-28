@@ -321,7 +321,7 @@ export default {
       this.cargando = true
       this.error = ''
       try {
-        const respuesta = await fetch(`http://localhost:8000/api/habitaciones/${id}`)
+        const respuesta = await fetch(`https://hotel-gateway.onrender.com/api/habitaciones/${id}`)
         if (!respuesta.ok) throw new Error('Habitación no encontrada')
         this.habitacion = await respuesta.json()
         this.reserva.huespedes = 1
@@ -366,7 +366,7 @@ export default {
 
       try {
         const token = localStorage.getItem('token')
-        const respuesta = await fetch('http://localhost:8000/api/reservas', {
+        const respuesta = await fetch('https://hotel-gateway.onrender.com/api/reservas', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

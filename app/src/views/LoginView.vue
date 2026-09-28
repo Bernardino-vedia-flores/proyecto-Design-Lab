@@ -219,7 +219,7 @@ export default {
 
       this.cargando = true
       try {
-        const respuesta = await fetch('http://localhost:8000/api/usuarios/login', {
+        const respuesta = await fetch('https://hotel-gateway.onrender.com/api/usuarios/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -255,7 +255,7 @@ export default {
 
       this.cargando = true
       try {
-        const respuesta = await fetch('http://localhost:8000/api/usuarios/registro', {
+        const respuesta = await fetch('https://hotel-gateway.onrender.com/api/usuarios/registro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

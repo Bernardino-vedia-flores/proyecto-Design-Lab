@@ -206,7 +206,7 @@ export default {
       this.cargando = true
       this.error = ''
       try {
-        const respuesta = await fetch('http://localhost:8000/api/habitaciones')
+        const respuesta = await fetch('https://hotel-gateway.onrender.com/api/habitaciones')
         if (!respuesta.ok) throw new Error('Error al cargar habitaciones')
         this.habitaciones = await respuesta.json()
         this.filtrar()

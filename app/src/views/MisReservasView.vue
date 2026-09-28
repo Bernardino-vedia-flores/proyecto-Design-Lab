@@ -250,7 +250,7 @@ export default {
       this.error = ''
       try {
         const token = localStorage.getItem('token')
-        const respuesta = await fetch('http://localhost:8000/api/reservas/usuario/me', {
+        const respuesta = await fetch('https://hotel-gateway.onrender.com/api/reservas/usuario/me', {
           headers: { 'Authorization': `Bearer ${token}` }
         })
         if (!respuesta.ok) throw new Error('Error al cargar reservas')
@@ -267,7 +267,7 @@ export default {
       try {
         const token = localStorage.getItem('token')
         const respuesta = await fetch(
-          `http://localhost:8000/api/reservas/${this.reservaACancelar.id}/cancelar`,
+          `https://hotel-gateway.onrender.com/api/reservas/${this.reservaACancelar.id}/cancelar`,
           {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
