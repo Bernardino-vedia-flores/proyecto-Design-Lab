@@ -35,7 +35,7 @@ async def proxy(method: str, url: str, request: Request = None, **kwargs):
         if auth:
             headers["authorization"] = auth
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             if method == "GET":
                 resp = await client.get(url, headers=headers, params=kwargs.get("params"))
@@ -46,11 +46,24 @@ async def proxy(method: str, url: str, request: Request = None, **kwargs):
             elif method == "DELETE":
                 resp = await client.delete(url, headers=headers)
 
+            # Verificar que la respuesta tiene contenido
+            if not resp.content:
+                raise HTTPException(
+                    status_code=503,
+                    detail="El microservicio no devolvió respuesta. Puede estar iniciando, intenta de nuevo en unos segundos."
+                )
+
             return resp.json()
+
         except httpx.ConnectError:
             raise HTTPException(
                 status_code=503,
-                detail=f"No se pudo conectar al microservicio. Verifica que esté corriendo."
+                detail="No se pudo conectar al microservicio. Verifica que esté corriendo."
+            )
+        except httpx.TimeoutException:
+            raise HTTPException(
+                status_code=504,
+                detail="El microservicio tardó demasiado en responder. Intenta de nuevo."
             )
 
 # ── HEALTH ─────────────────────────────────────────────────────────
