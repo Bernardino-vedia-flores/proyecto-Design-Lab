@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 import httpx
 import os
@@ -17,15 +17,20 @@ app = FastAPI(title="API Gateway - Hotel Reserve", version="1.0.0")
 # ── CORS ───────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://hotel-reservas-sucre.netlify.app"
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
 )
+
+# ── EXCEPTION HANDLER ──────────────────────────────────────────────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 # ── UTILIDAD: PROXY REQUEST ────────────────────────────────────────
 async def proxy(method: str, url: str, request: Request = None, **kwargs):
@@ -46,11 +51,10 @@ async def proxy(method: str, url: str, request: Request = None, **kwargs):
             elif method == "DELETE":
                 resp = await client.delete(url, headers=headers)
 
-            # Verificar que la respuesta tiene contenido
             if not resp.content:
                 raise HTTPException(
                     status_code=503,
-                    detail="El microservicio no devolvió respuesta. Puede estar iniciando, intenta de nuevo en unos segundos."
+                    detail="El microservicio no devolvió respuesta. Intenta de nuevo en unos segundos."
                 )
 
             return resp.json()
@@ -58,12 +62,12 @@ async def proxy(method: str, url: str, request: Request = None, **kwargs):
         except httpx.ConnectError:
             raise HTTPException(
                 status_code=503,
-                detail="No se pudo conectar al microservicio. Verifica que esté corriendo."
+                detail="No se pudo conectar al microservicio."
             )
         except httpx.TimeoutException:
             raise HTTPException(
                 status_code=504,
-                detail="El microservicio tardó demasiado en responder. Intenta de nuevo."
+                detail="El microservicio tardó demasiado. Intenta de nuevo."
             )
 
 # ── HEALTH ─────────────────────────────────────────────────────────
@@ -83,7 +87,7 @@ def health():
 @app.get("/health")
 async def health_check():
     estados = {}
-    async with httpx.AsyncClient(timeout=5) as client:
+    async with httpx.AsyncClient(timeout=10) as client:
         for nombre, url in [
             ("ms_usuarios",     MS_USUARIOS),
             ("ms_habitaciones", MS_HABITACIONES),
@@ -120,32 +124,20 @@ async def actualizar_perfil(id: str, request: Request):
 @app.get("/api/habitaciones")
 async def listar_habitaciones(
     request: Request,
-    tipo:        str = None,
-    disponible:  bool = None,
-    precio_max:  float = None
+    tipo:       str = None,
+    disponible: bool = None,
+    precio_max: float = None
 ):
     params = {}
-    if tipo:        params["tipo"]        = tipo
+    if tipo:               params["tipo"]        = tipo
     if disponible is not None: params["disponible"] = disponible
-    if precio_max:  params["precio_max"]  = precio_max
-
+    if precio_max:         params["precio_max"]  = precio_max
     return await proxy("GET", f"{MS_HABITACIONES}/habitaciones", params=params)
 
 @app.get("/api/habitaciones/disponibles")
-async def habitaciones_disponibles(
-    request: Request,
-    fecha_entrada: str,
-    fecha_salida:  str
-):
-    params = {
-        "fecha_entrada": fecha_entrada,
-        "fecha_salida":  fecha_salida
-    }
-    return await proxy(
-        "GET",
-        f"{MS_HABITACIONES}/habitaciones/disponibles/fechas",
-        params=params
-    )
+async def habitaciones_disponibles(request: Request, fecha_entrada: str, fecha_salida: str):
+    params = {"fecha_entrada": fecha_entrada, "fecha_salida": fecha_salida}
+    return await proxy("GET", f"{MS_HABITACIONES}/habitaciones/disponibles/fechas", params=params)
 
 @app.get("/api/habitaciones/{id}")
 async def ver_habitacion(id: str, request: Request):
@@ -192,7 +184,7 @@ async def graphql_proxy(request: Request):
     if auth:
         headers["authorization"] = auth
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             resp = await client.post(
                 f"{MS_RESERVAS}/graphql",
@@ -202,3 +194,5 @@ async def graphql_proxy(request: Request):
             return resp.json()
         except httpx.ConnectError:
             raise HTTPException(status_code=503, detail="MS Reservas no disponible.")
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="MS Reservas tardó demasiado.")
