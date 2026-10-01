@@ -13,7 +13,10 @@
           <h2>Bienvenido de vuelta a tu <span class="gold">estancia ideal</span></h2>
           <p>Accede a tu cuenta para gestionar tus reservas, ver el historial y más.</p>
           <div class="perks">
-            
+            <div class="perk">
+              <div class="perk-icon">🔒</div>
+              <span>Acceso seguro con JWT</span>
+            </div>
             <div class="perk">
               <div class="perk-icon">📅</div>
               <span>Gestiona tus reservas fácilmente</span>
@@ -59,6 +62,7 @@
           <p class="form-sub">Ingresa tus credenciales para continuar</p>
 
           <div v-if="errorLogin" class="error-msg">{{ errorLogin }}</div>
+          <div v-if="cargando" class="info-msg">⏳ Conectando con el servidor, por favor espera...</div>
 
           <div class="field">
             <label>CORREO ELECTRÓNICO</label>
@@ -67,6 +71,7 @@
               type="email"
               placeholder="tucorreo@email.com"
               @keyup.enter="iniciarSesion"
+              :disabled="cargando"
             />
           </div>
 
@@ -77,6 +82,7 @@
               type="password"
               placeholder="••••••••"
               @keyup.enter="iniciarSesion"
+              :disabled="cargando"
             />
           </div>
 
@@ -85,10 +91,13 @@
           </div>
 
           <button class="btn-primary" @click="iniciarSesion" :disabled="cargando">
-            {{ cargando ? 'Ingresando...' : 'Iniciar sesión' }}
+            {{ cargando ? 'Conectando... (puede tardar hasta 60 seg)' : 'Iniciar sesión' }}
           </button>
 
-          
+          <p class="switch-text">
+            ¿No tienes cuenta?
+            <a @click="tabActivo = 'registro'">Regístrate gratis</a>
+          </p>
         </div>
 
         <!-- FORMULARIO REGISTRO -->
@@ -98,35 +107,36 @@
 
           <div v-if="errorRegistro" class="error-msg">{{ errorRegistro }}</div>
           <div v-if="exitoRegistro" class="exito-msg">{{ exitoRegistro }}</div>
+          <div v-if="cargando" class="info-msg">⏳ Conectando con el servidor, por favor espera...</div>
 
           <div class="row-2">
             <div class="field">
               <label>NOMBRE</label>
-              <input v-model="registro.nombre" type="text" placeholder="Juan" />
+              <input v-model="registro.nombre" type="text" placeholder="Juan" :disabled="cargando" />
             </div>
             <div class="field">
               <label>APELLIDO</label>
-              <input v-model="registro.apellido" type="text" placeholder="Pérez" />
+              <input v-model="registro.apellido" type="text" placeholder="Pérez" :disabled="cargando" />
             </div>
           </div>
 
           <div class="field">
             <label>CORREO ELECTRÓNICO</label>
-            <input v-model="registro.email" type="email" placeholder="tucorreo@email.com" />
+            <input v-model="registro.email" type="email" placeholder="tucorreo@email.com" :disabled="cargando" />
           </div>
 
           <div class="field">
             <label>CONTRASEÑA</label>
-            <input v-model="registro.password" type="password" placeholder="Mínimo 8 caracteres" />
+            <input v-model="registro.password" type="password" placeholder="Mínimo 8 caracteres" :disabled="cargando" />
           </div>
 
           <div class="field">
             <label>CONFIRMAR CONTRASEÑA</label>
-            <input v-model="registro.confirmar" type="password" placeholder="Repite tu contraseña" />
+            <input v-model="registro.confirmar" type="password" placeholder="Repite tu contraseña" :disabled="cargando" />
           </div>
 
           <button class="btn-primary" @click="registrarse" :disabled="cargando">
-            {{ cargando ? 'Creando cuenta...' : 'Crear cuenta' }}
+            {{ cargando ? 'Conectando... (puede tardar hasta 60 seg)' : 'Crear cuenta' }}
           </button>
 
           <p class="terms">
@@ -147,21 +157,19 @@
 </template>
 
 <script>
+const API_URL = 'https://hotel-gateway.onrender.com'
+
 export default {
-  name: 'LoginRegistro',
+  name: 'LoginView',
 
   data() {
     return {
       tabActivo: 'login',
       cargando: false,
-
-      // Datos del formulario de login
       login: {
         email: '',
         password: ''
       },
-
-      // Datos del formulario de registro
       registro: {
         nombre: '',
         apellido: '',
@@ -169,8 +177,6 @@ export default {
         password: '',
         confirmar: ''
       },
-
-      // Mensajes
       errorLogin: '',
       errorRegistro: '',
       exitoRegistro: ''
@@ -178,7 +184,6 @@ export default {
   },
 
   methods: {
-    // ── VALIDACIONES ──────────────────────────────
     validarLogin() {
       if (!this.login.email || !this.login.password) {
         this.errorLogin = 'Por favor completa todos los campos.'
@@ -213,20 +218,37 @@ export default {
       return true
     },
 
-    // ── INICIAR SESIÓN ────────────────────────────
+    async fetchConTimeout(url, opciones, timeoutMs = 120000) {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+      try {
+        const respuesta = await fetch(url, { ...opciones, signal: controller.signal })
+        clearTimeout(timeoutId)
+        return respuesta
+      } catch (error) {
+        clearTimeout(timeoutId)
+        if (error.name === 'AbortError') {
+          throw new Error('El servidor tardó demasiado. El servicio puede estar iniciando, intenta de nuevo en 30 segundos.')
+        }
+        throw error
+      }
+    },
+
     async iniciarSesion() {
       if (!this.validarLogin()) return
-
       this.cargando = true
       try {
-        const respuesta = await fetch('https://hotel-gateway.onrender.com/api/usuarios/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: this.login.email,
-            password: this.login.password
-          })
-        })
+        const respuesta = await this.fetchConTimeout(
+          `${API_URL}/api/usuarios/login`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: this.login.email,
+              password: this.login.password
+            })
+          }
+        )
 
         const datos = await respuesta.json()
 
@@ -235,36 +257,35 @@ export default {
           return
         }
 
-        // Guardar token y nombre en localStorage
         localStorage.setItem('token', datos.token)
         localStorage.setItem('nombre', datos.nombre)
-
-        // Redirigir a la página principal
+        localStorage.setItem('email', datos.email)
         this.$router.push('/')
 
       } catch (error) {
-        this.errorLogin = 'No se pudo conectar con el servidor. Intenta más tarde.'
+        this.errorLogin = error.message || 'No se pudo conectar con el servidor. Intenta más tarde.'
       } finally {
         this.cargando = false
       }
     },
 
-    // ── REGISTRARSE ───────────────────────────────
     async registrarse() {
       if (!this.validarRegistro()) return
-
       this.cargando = true
       try {
-        const respuesta = await fetch('https://hotel-gateway.onrender.com/api/usuarios/registro', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nombre: this.registro.nombre,
-            apellido: this.registro.apellido,
-            email: this.registro.email,
-            password: this.registro.password
-          })
-        })
+        const respuesta = await this.fetchConTimeout(
+          `${API_URL}/api/usuarios/registro`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nombre: this.registro.nombre,
+              apellido: this.registro.apellido,
+              email: this.registro.email,
+              password: this.registro.password
+            })
+          }
+        )
 
         const datos = await respuesta.json()
 
@@ -273,7 +294,6 @@ export default {
           return
         }
 
-        // Mostrar mensaje de éxito y cambiar al tab de login
         this.exitoRegistro = '¡Cuenta creada exitosamente! Ahora puedes iniciar sesión.'
         setTimeout(() => {
           this.tabActivo = 'login'
@@ -281,7 +301,7 @@ export default {
         }, 2000)
 
       } catch (error) {
-        this.errorRegistro = 'No se pudo conectar con el servidor. Intenta más tarde.'
+        this.errorRegistro = error.message || 'No se pudo conectar con el servidor. Intenta más tarde.'
       } finally {
         this.cargando = false
       }
@@ -311,7 +331,6 @@ export default {
   min-height: 560px;
 }
 
-/* ── PANEL IZQUIERDO ── */
 .left-panel {
   width: 42%;
   background-color: #0d0d0d;
@@ -349,9 +368,7 @@ export default {
   color: #ffffff;
 }
 
-.gold {
-  color: #C9A84C;
-}
+.gold { color: #C9A84C; }
 
 .left-content h2 {
   font-size: 20px;
@@ -368,17 +385,9 @@ export default {
   margin-bottom: 1.5rem;
 }
 
-.perks {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+.perks { display: flex; flex-direction: column; gap: 12px; }
 
-.perk {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+.perk { display: flex; align-items: center; gap: 10px; }
 
 .perk-icon {
   width: 28px;
@@ -393,18 +402,10 @@ export default {
   flex-shrink: 0;
 }
 
-.perk span {
-  font-size: 12px;
-  color: #888888;
-}
+.perk span { font-size: 12px; color: #888888; }
 
-.left-footer {
-  font-size: 10px;
-  color: #333333;
-  margin-top: 2rem;
-}
+.left-footer { font-size: 10px; color: #333333; margin-top: 2rem; }
 
-/* ── PANEL DERECHO ── */
 .right-panel {
   flex: 1;
   padding: 2.5rem 2rem;
@@ -440,7 +441,6 @@ export default {
   font-weight: 600;
 }
 
-/* ── FORMULARIO ── */
 .form-title {
   font-size: 18px;
   font-weight: 500;
@@ -454,9 +454,7 @@ export default {
   margin-bottom: 1.5rem;
 }
 
-.field {
-  margin-bottom: 1rem;
-}
+.field { margin-bottom: 1rem; }
 
 .field label {
   display: block;
@@ -479,25 +477,13 @@ export default {
   transition: border-color 0.2s;
 }
 
-.field input:focus {
-  border-color: #C9A84C;
-}
+.field input:focus { border-color: #C9A84C; }
+.field input:disabled { opacity: 0.5; cursor: not-allowed; }
+.field input::placeholder { color: #333333; }
 
-.field input::placeholder {
-  color: #333333;
-}
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-.row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.forgot {
-  text-align: right;
-  margin-top: -6px;
-  margin-bottom: 1rem;
-}
+.forgot { text-align: right; margin-top: -6px; margin-bottom: 1rem; }
 
 .forgot a {
   font-size: 11px;
@@ -520,9 +506,7 @@ export default {
   transition: background 0.2s;
 }
 
-.btn-primary:hover {
-  background-color: #E8C97A;
-}
+.btn-primary:hover { background-color: #E8C97A; }
 
 .btn-primary:disabled {
   background-color: #5a4a1e;
@@ -537,11 +521,7 @@ export default {
   margin-top: 0.75rem;
 }
 
-.switch-text a {
-  color: #C9A84C;
-  cursor: pointer;
-  text-decoration: none;
-}
+.switch-text a { color: #C9A84C; cursor: pointer; text-decoration: none; }
 
 .terms {
   font-size: 10px;
@@ -551,12 +531,8 @@ export default {
   line-height: 1.6;
 }
 
-.terms a {
-  color: #555555;
-  text-decoration: none;
-}
+.terms a { color: #555555; text-decoration: none; }
 
-/* ── MENSAJES ── */
 .error-msg {
   background-color: #2a0a0a;
   border: 1px solid #5a1a1a;
@@ -577,21 +553,19 @@ export default {
   margin-bottom: 1rem;
 }
 
-/* ── RESPONSIVE ── */
+.info-msg {
+  background-color: #0a1a2a;
+  border: 1px solid #1a3a5a;
+  color: #42A5F5;
+  padding: 10px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  margin-bottom: 1rem;
+}
+
 @media (max-width: 640px) {
-  .auth-container {
-    flex-direction: column;
-  }
-
-  .left-panel {
-    width: 100%;
-    padding: 1.5rem;
-    border-right: none;
-    border-bottom: 1px solid #1e1e1e;
-  }
-
-  .perks {
-    display: none;
-  }
+  .auth-container { flex-direction: column; }
+  .left-panel { width: 100%; padding: 1.5rem; border-right: none; border-bottom: 1px solid #1e1e1e; }
+  .perks { display: none; }
 }
 </style>

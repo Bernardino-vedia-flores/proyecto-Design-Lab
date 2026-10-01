@@ -40,7 +40,7 @@ async def proxy(method: str, url: str, request: Request = None, **kwargs):
         if auth:
             headers["authorization"] = auth
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             if method == "GET":
                 resp = await client.get(url, headers=headers, params=kwargs.get("params"))
@@ -184,7 +184,7 @@ async def graphql_proxy(request: Request):
     if auth:
         headers["authorization"] = auth
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             resp = await client.post(
                 f"{MS_RESERVAS}/graphql",
