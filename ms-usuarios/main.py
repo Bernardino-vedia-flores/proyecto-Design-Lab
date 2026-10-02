@@ -1,11 +1,11 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from supabase import create_client, Client
-from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import bcrypt
 import os
 
 # ── CONFIGURACIÓN ──────────────────────────────────────────────────
@@ -18,7 +18,6 @@ JWT_ALGO     = "HS256"
 JWT_EXPIRY   = 60 * 24  # 24 horas en minutos
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 app = FastAPI(title="MS Usuarios", version="1.0.0")
 
@@ -26,11 +25,11 @@ app = FastAPI(title="MS Usuarios", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
 )
+
 # ── MODELOS ────────────────────────────────────────────────────────
 class RegistroRequest(BaseModel):
     nombre:   str
@@ -42,18 +41,25 @@ class LoginRequest(BaseModel):
     email:    str
     password: str
 
+# ── UTILIDADES BCRYPT ──────────────────────────────────────────────
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(
+        password.encode('utf-8'),
+        bcrypt.gensalt()
+    ).decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(
+        password.encode('utf-8'),
+        hashed.encode('utf-8')
+    )
+
 # ── UTILIDADES JWT ─────────────────────────────────────────────────
 def crear_token(data: dict):
     payload = data.copy()
     expira  = datetime.utcnow() + timedelta(minutes=JWT_EXPIRY)
     payload.update({"exp": expira})
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
-
-def verificar_token(token: str):
-    try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token inválido o expirado")
 
 # ── ENDPOINTS ──────────────────────────────────────────────────────
 
@@ -70,7 +76,7 @@ def registro(data: RegistroRequest):
         raise HTTPException(status_code=400, detail="El correo ya está registrado.")
 
     # Encriptar contraseña
-    password_hash = pwd_context.hash(data.password)
+    password_hash = hash_password(data.password)
 
     # Guardar en Supabase
     nuevo = supabase.table("usuarios").insert({
@@ -104,22 +110,22 @@ def login(data: LoginRequest):
     usuario = resultado.data[0]
 
     # Verificar contraseña
-    if not pwd_context.verify(data.password, usuario["password_hash"]):
+    if not verify_password(data.password, usuario["password_hash"]):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas.")
 
     # Crear token JWT
     token = crear_token({
-        "sub":   usuario["id"],
-        "email": usuario["email"],
-        "rol":   usuario["rol"],
+        "sub":    usuario["id"],
+        "email":  usuario["email"],
+        "rol":    usuario["rol"],
         "nombre": usuario["nombre"]
     })
 
     return {
-        "token":   token,
-        "nombre":  usuario["nombre"],
-        "email":   usuario["email"],
-        "rol":     usuario["rol"]
+        "token":  token,
+        "nombre": usuario["nombre"],
+        "email":  usuario["email"],
+        "rol":    usuario["rol"]
     }
 
 # VER PERFIL
@@ -137,7 +143,6 @@ def ver_perfil(id: str):
 # ACTUALIZAR PERFIL
 @app.put("/usuarios/{id}")
 def actualizar_perfil(id: str, data: dict):
-    # No permitir actualizar password_hash ni rol directamente
     data.pop("password_hash", None)
     data.pop("rol", None)
 
